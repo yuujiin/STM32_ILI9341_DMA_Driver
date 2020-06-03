@@ -270,7 +270,7 @@ HAL_StatusTypeDef ILI_DMA_Load(uint16_t *Buf) {
 	// Set transfer size
 	DMA_SizeRemaining = Size;
 	DMA_BufRemaining  = Buf;
-	DMA_Busy = 0;
+	DMA_Busy = 1;
 	// Using callback function to start transfer
 	return ILI_DMA_Callback();
 }
