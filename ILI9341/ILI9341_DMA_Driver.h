@@ -43,7 +43,7 @@
 //		* GPIO: GPIO_SPEED_FREQ_VERY_HIGH for CS and DC pins
 //		* GPIO initial values: RST=Low, CS=High - LCD is in reset state before ILI_Init()
 //	* Configure parameters in ILI9341_Driver.h:
-//		* Define your ILI_HSPI_INSTANCE
+//		* Define your ILI_SPI_HANDLE
 //		* Define your CS, DC and RST outputs
 //		* Check if ILI_SCREEN_WIDTH and ILI_SCREEN_HEIGHT match your LCD size and orientation.
 //	* In your main program initialize LCD with ILI_Init() before use
@@ -58,7 +58,7 @@
 //	volatile uint16_t display_buf[ILI_SCREEN_WIDTH*ILI_SCREEN_HEIGHT] __ALIGNED(32);	// aligned for DCache
 //	/* Interrupt callback */
 //	void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
-//		if (hspi == &ILI_HSPI_INSTANCE) {
+//		if (hspi->Instance == ILI_SPI_HANDLE.Instance) {
 //			ILI_DMA_Callback();
 //		}
 //	}
@@ -99,8 +99,8 @@
 // SCREEN ORIENTATION
 #define ILI_ROTATION		SCREEN_HORIZONTAL_1
 
-// SPI INSTANCE
-#define ILI_HSPI_INSTANCE	hspi4
+// SPI HANDLE
+#define ILI_SPI_HANDLE		hspi4
 
 // CHIP SELECT PIN AND PORT, STANDARD GPIO
 #define ILI_CS_PORT			LCD_CS_GPIO_Port

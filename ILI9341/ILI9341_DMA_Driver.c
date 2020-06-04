@@ -35,7 +35,7 @@ static inline HAL_StatusTypeDef ILI_SPI_Write(uint8_t Data, GPIO_PinState DC_Pin
 	HAL_GPIO_WritePin(ILI_CS_PORT, ILI_CS_PIN, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(ILI_DC_PORT, ILI_DC_PIN, DC_PinState);
 	//HAL_Delay(1);
-	result = HAL_SPI_Transmit(&ILI_HSPI_INSTANCE, &Data, 1, 1);
+	result = HAL_SPI_Transmit(&ILI_SPI_HANDLE, &Data, 1, 1);
 	HAL_GPIO_WritePin(ILI_CS_PORT, ILI_CS_PIN, GPIO_PIN_SET);
 	return result;
 }
@@ -247,7 +247,7 @@ HAL_StatusTypeDef ILI_DMA_Load(uint16_t *Buf) {
 
 	// Check DMA data size
 	// Abort in case of wrong configuration
-	if (ILI_HSPI_INSTANCE.hdmatx->Init.PeriphDataAlignment != DMA_PDATAALIGN_HALFWORD) return HAL_ERROR;
+	if (ILI_SPI_HANDLE.hdmatx->Init.PeriphDataAlignment != DMA_PDATAALIGN_HALFWORD) return HAL_ERROR;
 
 	uint32_t Size = Block_Width * Block_Height;
 
@@ -259,12 +259,12 @@ HAL_StatusTypeDef ILI_DMA_Load(uint16_t *Buf) {
 	SCB_CleanDCache_by_Addr((uint32_t *)Buf, Size*2);	// size in bytes
 
 	// Switch SPI data size to 16-bit
-	if (ILI_HSPI_INSTANCE.Init.DataSize != SPI_DATASIZE_16BIT) {
-		ILI_HSPI_INSTANCE.Init.DataSize = SPI_DATASIZE_16BIT;
-		WRITE_REG(ILI_HSPI_INSTANCE.Instance->CFG1, (	ILI_HSPI_INSTANCE.Init.BaudRatePrescaler 	|
-															ILI_HSPI_INSTANCE.Init.CRCCalculation 		|
-															ILI_HSPI_INSTANCE.Init.FifoThreshold     	|
-															ILI_HSPI_INSTANCE.Init.DataSize				));
+	if (ILI_SPI_HANDLE.Init.DataSize != SPI_DATASIZE_16BIT) {
+		ILI_SPI_HANDLE.Init.DataSize = SPI_DATASIZE_16BIT;
+		WRITE_REG(ILI_SPI_HANDLE.Instance->CFG1, (	ILI_SPI_HANDLE.Init.BaudRatePrescaler 	|
+													ILI_SPI_HANDLE.Init.CRCCalculation 		|
+													ILI_SPI_HANDLE.Init.FifoThreshold     	|
+													ILI_SPI_HANDLE.Init.DataSize			));
 	}
 
 	// Set transfer size
@@ -296,15 +296,15 @@ HAL_StatusTypeDef ILI_DMA_Callback(void) {
 			DMA_BufRemaining = &DMA_BufRemaining[TransferSize];
 		}
 
-		result = HAL_SPI_Transmit_DMA(&ILI_HSPI_INSTANCE, (uint8_t *)TransferBuf, TransferSize);
+		result = HAL_SPI_Transmit_DMA(&ILI_SPI_HANDLE, (uint8_t *)TransferBuf, TransferSize);
 	} else {
 		// Restore 8-bit data size
-		if (ILI_HSPI_INSTANCE.Init.DataSize != SPI_DATASIZE_8BIT) {
-			ILI_HSPI_INSTANCE.Init.DataSize = SPI_DATASIZE_8BIT;
-			WRITE_REG(ILI_HSPI_INSTANCE.Instance->CFG1, (	ILI_HSPI_INSTANCE.Init.BaudRatePrescaler 	|
-																ILI_HSPI_INSTANCE.Init.CRCCalculation 		|
-																ILI_HSPI_INSTANCE.Init.FifoThreshold     	|
-																ILI_HSPI_INSTANCE.Init.DataSize				));
+		if (ILI_SPI_HANDLE.Init.DataSize != SPI_DATASIZE_8BIT) {
+			ILI_SPI_HANDLE.Init.DataSize = SPI_DATASIZE_8BIT;
+			WRITE_REG(ILI_SPI_HANDLE.Instance->CFG1, (	ILI_SPI_HANDLE.Init.BaudRatePrescaler 	|
+														ILI_SPI_HANDLE.Init.CRCCalculation 		|
+														ILI_SPI_HANDLE.Init.FifoThreshold     	|
+														ILI_SPI_HANDLE.Init.DataSize			));
 		}
 
 		HAL_GPIO_WritePin(ILI_CS_PORT, ILI_CS_PIN, GPIO_PIN_SET);
