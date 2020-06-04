@@ -78,7 +78,7 @@
 //	  }
 //	}
 //	/* Load frame buffer */
-//	ILI_DMA_Load((uint16_t *)display_buf, (ILI_SCREEN_WIDTH*ILI_SCREEN_HEIGHT));
+//	ILI_DMA_Load((uint16_t *)display_buf);
 //
 //-----------------------------------
 

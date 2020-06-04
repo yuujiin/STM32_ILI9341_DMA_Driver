@@ -41,4 +41,4 @@ For 320x240 SPI LCD boards based on ILI9341 driver chip.
 	  }
 	}
 	/* Load frame buffer */
-	ILI_DMA_Load((uint16_t *)display_buf, (ILI_SCREEN_WIDTH*ILI_SCREEN_HEIGHT));
+	ILI_DMA_Load((uint16_t *)display_buf);
