@@ -9,7 +9,6 @@ For 320x240 SPI LCD boards based on ILI9341 driver chip.
 	* GPIO: GPIO_SPEED_FREQ_VERY_HIGH for CS and DC pins
 	* GPIO initial values: RST=Low, CS=High - LCD is in reset state before ILI_Init()
 * Configure parameters in ILI9341_Driver.h:
-	* If using MCUs other than STM32H7 you will have to change the #include "stm32h7xx_hal.h" to your respective .h file
 	* Define your ILI_HSPI_INSTANCE
 	* Define your CS, DC and RST outputs
 	* Check if ILI_SCREEN_WIDTH and ILI_SCREEN_HEIGHT match your LCD size and orientation.
