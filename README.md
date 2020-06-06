@@ -1,12 +1,14 @@
 # ILI9341 DMA driver library for STM32 HAL
 For 320x240 SPI LCD boards based on ILI9341 driver chip.
+Supports STM32 H7, F7, F4 device families.
 
 ## How to use this library
 * Generate SPI peripheral and 3 GPIO outputs
 	* STM32Cube code generation: separate .c/.h files for each peripheral
 	* SPI peripheral: CPOL=LOW, CPHA=1EDGE, 8 bits, MSB first, Software NSS, up to 50 MHz
 	* Tx DMA for SPI: Half Word (16 bits) data width
-	* GPIO: GPIO_SPEED_FREQ_VERY_HIGH for CS and DC pins
+	* GPIO: CS, DC and RST outputs
+	* GPIO_SPEED_FREQ_VERY_HIGH for CS and DC pins
 	* GPIO initial values: RST=Low, CS=High - LCD is in reset state before ILI_Init()
 * Configure parameters in ILI9341_Driver.h:
 	* Define your ILI_SPI_HANDLE
@@ -27,6 +29,9 @@ For 320x240 SPI LCD boards based on ILI9341 driver chip.
 	}
 	/* Main program init section */
 	ILI_Init();
+	/* Splash screen */
+	ILI_DMA_Fill(BLACK);
+	while (ILI_DMA_Busy());
 	/* Draw something */
 	uint32_t i;
 	for (i = 0; i < (ILI_SCREEN_WIDTH*ILI_SCREEN_HEIGHT); i++) {
