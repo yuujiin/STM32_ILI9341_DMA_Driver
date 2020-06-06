@@ -1,6 +1,7 @@
 //
 //--------------------------------------------
 //	ILI9341 DMA Driver library for STM32 HAL
+//	https://github.com/yuujiin/STM32_ILI9341_DMA_Driver
 //--------------------------------------------
 //
 //
@@ -40,7 +41,8 @@
 //		* STM32Cube code generation: separate .c/.h files for each peripheral
 //		* SPI peripheral: CPOL=LOW, CPHA=1EDGE, 8 bits, MSB first, Software NSS, up to 50 MHz
 //		* Tx DMA for SPI: Half Word (16 bits) data width
-//		* GPIO: GPIO_SPEED_FREQ_VERY_HIGH for CS and DC pins
+//		* GPIO: CS, DC and RST outputs
+//		* GPIO_SPEED_FREQ_VERY_HIGH for CS and DC pins
 //		* GPIO initial values: RST=Low, CS=High - LCD is in reset state before ILI_Init()
 //	* Configure parameters in ILI9341_Driver.h:
 //		* Define your ILI_SPI_HANDLE
@@ -64,6 +66,9 @@
 //	}
 //	/* Main program init section */
 //	ILI_Init();
+//	/* Splash screen */
+//	ILI_DMA_Fill(BLACK);
+//	while (ILI_DMA_Busy());
 //	/* Draw something */
 //	uint32_t i;
 //	for (i = 0; i < (ILI_SCREEN_WIDTH*ILI_SCREEN_HEIGHT); i++) {
@@ -156,8 +161,8 @@ void ILI_Set_Rotation(uint8_t Rotation);
 void ILI_Set_Address(uint16_t X, uint16_t Y, uint16_t W, uint16_t H);
 
 /* DMA functions */
-// todo HAL_StatusTypeDef ILI_DMA_Fill(uint16_t Color);
 HAL_StatusTypeDef ILI_DMA_Load(uint16_t *Buf);
+HAL_StatusTypeDef ILI_DMA_Fill(uint16_t Color);
 HAL_StatusTypeDef ILI_DMA_Callback(void);
 uint8_t ILI_DMA_Busy(void);
 

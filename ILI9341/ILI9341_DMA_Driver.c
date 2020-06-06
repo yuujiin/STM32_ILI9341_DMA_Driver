@@ -1,5 +1,6 @@
 //--------------------------------------------
 //	ILI9341 DMA Driver library for STM32 HAL
+//	https://github.com/yuujiin/STM32_ILI9341_DMA_Driver
 //--------------------------------------------
 
 
@@ -11,6 +12,7 @@ static volatile uint16_t  Block_Width	= ILI_SCREEN_WIDTH;
 static volatile uint16_t  Block_Height	= ILI_SCREEN_HEIGHT;
 static volatile uint32_t  DMA_SizeRemaining = 0;
 static volatile uint16_t *DMA_BufRemaining;
+static volatile uint16_t  DMA_BufFill __ALIGNED(32)	= BLACK;	// Aligned for DCache
 static volatile uint8_t	  DMA_Busy = 0;
 
 /* HARDWARE RESET */
@@ -34,7 +36,6 @@ static inline HAL_StatusTypeDef ILI_SPI_Write(uint8_t Data, GPIO_PinState DC_Pin
 	HAL_StatusTypeDef result;
 	HAL_GPIO_WritePin(ILI_CS_PORT, ILI_CS_PIN, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(ILI_DC_PORT, ILI_DC_PIN, DC_PinState);
-	//HAL_Delay(1);
 	result = HAL_SPI_Transmit(&ILI_SPI_HANDLE, &Data, 1, 1);
 	HAL_GPIO_WritePin(ILI_CS_PORT, ILI_CS_PIN, GPIO_PIN_SET);
 	return result;
@@ -239,40 +240,101 @@ void ILI_Init(void)
 }
 
 /* DMA Transfer functions -------------------------------- */
+/* Switch SPI data size
+ * (internal function)
+ * Generates preprocessor error if not implemented for your target platform */
+static inline void ILI_SPI_SetDataSize(uint32_t datasize) {
+	if (ILI_SPI_HANDLE.Init.DataSize != datasize) {
+		ILI_SPI_HANDLE.Init.DataSize =  datasize;
+		/* Platform specific implementation: */
+#ifdef STM32H7	// Tested on STM32H743 & STM32H753
+		/* SPI_CFG1 reg, bits 4:0 DSIZE[4:0]
+		 * 00111: 8-bit / 01111: 16-bit */
+		CLEAR_BIT(ILI_SPI_HANDLE.Instance->CFG1, SPI_DATASIZE_32BIT);
+		SET_BIT  (ILI_SPI_HANDLE.Instance->CFG1, datasize);
+#elif defined STM32F7
+		/* SPI_CR2 reg, bits 11:8 DS[3:0]
+		 * 0111: 8-bit / 1111: 16-bit */
+		CLEAR_BIT(ILI_SPI_HANDLE.Instance->CR2, SPI_DATASIZE_16BIT);
+		SET_BIT  (ILI_SPI_HANDLE.Instance->CR2, datasize);
+#elif defined STM32F4
+		/* SPI_CR1 reg, bit 11 DFF, 0: 8-bit / 1: 16-bit
+		 * This bit should be written only when SPI is disabled (SPE = ‘0’) for correct operation.
+		 * SPI_CR1, bit 6 SPE */
+		CLEAR_BIT(ILI_SPI_HANDLE.Instance->CR1, SPI_CR1_SPE);
+		CLEAR_BIT(ILI_SPI_HANDLE.Instance->CR1, SPI_DATASIZE_16BIT);
+		SET_BIT  (ILI_SPI_HANDLE.Instance->CR1, datasize);
+		SET_BIT  (ILI_SPI_HANDLE.Instance->CR1, SPI_CR1_SPE);
+#else
+#error "SPI Data Size switching not implemented for target platform."
+#endif
+	}
+}
+
+/* Enable/disable DMA Memory Address Increment
+ * (internal function)
+ * Generates preprocessor error if not implemented for your target platform */
+static inline void ILI_SPI_DMA_SetMemInc(uint32_t mode) {
+	if (ILI_SPI_HANDLE.hdmatx->Init.MemInc != mode) {
+		ILI_SPI_HANDLE.hdmatx->Init.MemInc =  mode;
+		/* Platform specific implementation: */
+#if defined STM32H7 || defined STM32F7 || defined STM32F4	// same on H7, F7, F4, and probably others
+		/* DMA_SxCR reg, bit 10 MINC
+		 * 1: increment enabled / 0: disabled (fixed pointer) */
+		CLEAR_BIT(((DMA_Stream_TypeDef *)ILI_SPI_HANDLE.hdmatx->Instance)->CR, DMA_MINC_ENABLE);
+		SET_BIT  (((DMA_Stream_TypeDef *)ILI_SPI_HANDLE.hdmatx->Instance)->CR, mode);
+#else
+#error "DMA Memory Increment Mode switching not implemented for target platform."
+#endif
+	}
+}
 
 /* Start DMA transfer
+ * (internal function)
  * DMA module should be configured for half-word (16-bit) operation */
-HAL_StatusTypeDef ILI_DMA_Load(uint16_t *Buf) {
+static HAL_StatusTypeDef ILI_DMA_Transfer(uint16_t *Buf, uint32_t MemInc) {
 	if (DMA_Busy) return HAL_BUSY;
 
 	// Check DMA data size
 	// Abort in case of wrong configuration
 	if (ILI_SPI_HANDLE.hdmatx->Init.PeriphDataAlignment != DMA_PDATAALIGN_HALFWORD) return HAL_ERROR;
 
-	uint32_t Size = Block_Width * Block_Height;
+	DMA_Busy = 1;
 
 	HAL_GPIO_WritePin(ILI_DC_PORT, ILI_DC_PIN, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(ILI_CS_PORT, ILI_CS_PIN, GPIO_PIN_RESET);
-	//HAL_Delay(1);
+
+	// Configure SPI & DMA peripherals
+	ILI_SPI_SetDataSize(SPI_DATASIZE_16BIT);
+	ILI_SPI_DMA_SetMemInc(MemInc);
+
+	// Size set by ILI_Set_Address()
+	uint32_t Size = Block_Width * Block_Height;
 
 	// Clean DCache before DMA write operations
-	SCB_CleanDCache_by_Addr((uint32_t *)Buf, Size*2);	// size in bytes
-
-	// Switch SPI data size to 16-bit
-	if (ILI_SPI_HANDLE.Init.DataSize != SPI_DATASIZE_16BIT) {
-		ILI_SPI_HANDLE.Init.DataSize = SPI_DATASIZE_16BIT;
-		WRITE_REG(ILI_SPI_HANDLE.Instance->CFG1, (	ILI_SPI_HANDLE.Init.BaudRatePrescaler 	|
-													ILI_SPI_HANDLE.Init.CRCCalculation 		|
-													ILI_SPI_HANDLE.Init.FifoThreshold     	|
-													ILI_SPI_HANDLE.Init.DataSize			));
+	if (MemInc == DMA_MINC_ENABLE) {
+		SCB_CleanDCache_by_Addr((uint32_t *)Buf, Size*2);	// size in bytes
+	} else {
+		SCB_CleanDCache_by_Addr((uint32_t *)Buf, 2);
 	}
 
-	// Set transfer size
+	// Using callback function to start transfer
 	DMA_SizeRemaining = Size;
 	DMA_BufRemaining  = Buf;
-	DMA_Busy = 1;
-	// Using callback function to start transfer
 	return ILI_DMA_Callback();
+}
+
+/* Start DMA transfer */
+HAL_StatusTypeDef ILI_DMA_Load(uint16_t *Buf) {
+	if (DMA_Busy) return HAL_BUSY;
+	return ILI_DMA_Transfer(Buf, DMA_MINC_ENABLE);
+}
+
+/* Fill display with solid color */
+HAL_StatusTypeDef ILI_DMA_Fill(uint16_t Color) {
+	if (DMA_Busy) return HAL_BUSY;
+	DMA_BufFill = Color;
+	return ILI_DMA_Transfer((uint16_t *)&DMA_BufFill, DMA_MINC_DISABLE);
 }
 
 /* Continue/finish DMA transfer
@@ -280,8 +342,7 @@ HAL_StatusTypeDef ILI_DMA_Load(uint16_t *Buf) {
 HAL_StatusTypeDef ILI_DMA_Callback(void) {
 	HAL_StatusTypeDef result = HAL_OK;
 
-	if (DMA_SizeRemaining > 0) {
-		// Continue transfer
+	if (DMA_SizeRemaining > 0) {	// Continue transfer
 		uint16_t TransferSize;
 		uint16_t *TransferBuf = (uint16_t *)DMA_BufRemaining;
 
@@ -293,19 +354,17 @@ HAL_StatusTypeDef ILI_DMA_Callback(void) {
 		} else {
 			TransferSize = UINT16_MAX - (UINT16_MAX % (Block_Width));
 			DMA_SizeRemaining -= TransferSize;
-			DMA_BufRemaining = &DMA_BufRemaining[TransferSize];
+			if (ILI_SPI_HANDLE.hdmatx->Init.MemInc != DMA_MINC_DISABLE) {	// Check if DMA_Fill in progress
+				DMA_BufRemaining = &DMA_BufRemaining[TransferSize];
+			}
 		}
 
 		result = HAL_SPI_Transmit_DMA(&ILI_SPI_HANDLE, (uint8_t *)TransferBuf, TransferSize);
 	} else {
 		// Restore 8-bit data size
-		if (ILI_SPI_HANDLE.Init.DataSize != SPI_DATASIZE_8BIT) {
-			ILI_SPI_HANDLE.Init.DataSize = SPI_DATASIZE_8BIT;
-			WRITE_REG(ILI_SPI_HANDLE.Instance->CFG1, (	ILI_SPI_HANDLE.Init.BaudRatePrescaler 	|
-														ILI_SPI_HANDLE.Init.CRCCalculation 		|
-														ILI_SPI_HANDLE.Init.FifoThreshold     	|
-														ILI_SPI_HANDLE.Init.DataSize			));
-		}
+		ILI_SPI_SetDataSize(SPI_DATASIZE_8BIT);
+		// Restore MemInc
+		ILI_SPI_DMA_SetMemInc(DMA_MINC_ENABLE);
 
 		HAL_GPIO_WritePin(ILI_CS_PORT, ILI_CS_PIN, GPIO_PIN_SET);
 		DMA_Busy = 0;
