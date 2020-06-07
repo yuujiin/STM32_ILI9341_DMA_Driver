@@ -8,8 +8,8 @@
 #include "ILI9341_DMA_Driver.h"
 
 /* Local Variables ----------------------------------------------------------*/
-static volatile uint16_t  Block_Width	= ILI_SCREEN_WIDTH;
-static volatile uint16_t  Block_Height	= ILI_SCREEN_HEIGHT;
+static uint16_t Block_Width  = ILI_SCREEN_WIDTH;
+static uint16_t Block_Height = ILI_SCREEN_HEIGHT;
 static volatile uint32_t  DMA_SizeRemaining = 0;
 static volatile uint16_t *DMA_BufRemaining;
 static volatile uint16_t  DMA_BufFill __ALIGNED(32)	= BLACK;	// Aligned for DCache
