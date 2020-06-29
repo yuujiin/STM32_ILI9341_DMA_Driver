@@ -119,6 +119,9 @@
 #define	ILI_RST_PORT		LCD_RESET_GPIO_Port
 #define	ILI_RST_PIN			LCD_RESET_Pin
 
+// DCACHE (Cortex-M7)
+#define ILI_DCACHE_ENABLED
+
 /* -------------------------------------------------------------------- */
 
 

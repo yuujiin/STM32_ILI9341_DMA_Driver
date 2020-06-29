@@ -312,11 +312,13 @@ static HAL_StatusTypeDef ILI_DMA_Transfer(uint16_t *Buf, uint32_t MemInc) {
 	uint32_t Size = Block_Width * Block_Height;
 
 	// Clean DCache before DMA write operations
+	#if defined __DCACHE_PRESENT && (__DCACHE_PRESENT == 1U) && defined ILI_DCACHE_ENABLED
 	if (MemInc == DMA_MINC_ENABLE) {
 		SCB_CleanDCache_by_Addr((uint32_t *)Buf, Size*2);	// size in bytes
 	} else {
 		SCB_CleanDCache_by_Addr((uint32_t *)Buf, 2);
 	}
+	#endif
 
 	// Using callback function to start transfer
 	DMA_SizeRemaining = Size;
